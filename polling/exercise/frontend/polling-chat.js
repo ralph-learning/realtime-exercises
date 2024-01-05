@@ -15,13 +15,39 @@ chat.addEventListener("submit", function (e) {
 });
 
 async function postNewMsg(user, text) {
-  // post to /poll a new message
-  // write code here
+  const data = {
+    user,
+    text,
+  };
+  const options = {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  };
+
+  return fetch("/poll", options);
 }
 
+let timesFailed = 0;
 async function getNewMsgs() {
-  // poll the server
-  // write code here
+  let resJson;
+  try {
+    const response = await fetch("/poll");
+    resJson = await response.json();
+
+    if (response.status > 400) {
+      throw new Error("Something went wrong: ", response.status);
+    }
+
+    timesFailed = 0;
+    allChat = resJson.messages;
+    render();
+  } catch (error) {
+    console.log(error);
+    timesFailed++;
+  }
 }
 
 function render() {
@@ -37,5 +63,16 @@ function render() {
 const template = (user, msg) =>
   `<li class="collection-item"><span class="badge">${user}</span>${msg}</li>`;
 
+const BACKOFF = 5000;
+let initialTime = 0;
+async function rafGetMessages(time) {
+  if (time > initialTime) {
+    await getNewMsgs();
+    initialTime = time + INTERVAL + timesFailed * BACKOFF;
+  }
+
+  requestAnimationFrame(rafGetMessages);
+}
+
 // make the first request
-getNewMsgs();
+requestAnimationFrame(rafGetMessages);
