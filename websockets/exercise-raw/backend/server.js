@@ -24,11 +24,54 @@ const server = http.createServer((request, response) => {
   });
 });
 
-/*
- *
- * your code goes here
- *
- */
+server.on("upgrade", function onUpgrade(req, socket) {
+  if (req.headers["upgrade"] !== "websocket") {
+    socket.end("HTTP/1.1 400 Bad Request");
+    return;
+  }
+
+  const acceptKey = req.headers["sec-websocket-key"];
+  const acceptValue = generateAcceptValue(acceptKey);
+  const headers = [
+    "HTTP/1.1 101 Web Socket Protocol Handshake",
+    "Upgrade: WebSocket",
+    "Connection: Upgrade",
+    `Sec-WebSocket-Accept: ${acceptValue}`,
+    "Sec-WebSocket-Protocol: json",
+    "\r\n",
+  ];
+
+  socket.write(headers.join("\r\n"));
+  socket.write(objToResponse({ msgs: getMsgs() }));
+
+  console.log(`User connected`);
+  connections.push(socket);
+
+  socket.on("data", function receiveData(buffer) {
+    const message = parseMessage(buffer);
+
+    if (message) {
+      msg.push({
+        user: message.user,
+        text: message.text,
+        time: Date.now(),
+      });
+    } else if (message === null) {
+      ws.end();
+    }
+
+    connections.forEach((connection) => {
+      connection.write(objToResponse({ msgs: getMsgs() }));
+    });
+  });
+
+  socket.on("end", () => {
+    connections = connections.filter((s) => s !== socket);
+
+    console.log(`User disconnected`);
+    console.log(connections.length);
+  });
+});
 
 const port = process.env.PORT || 8080;
 server.listen(port, () =>
