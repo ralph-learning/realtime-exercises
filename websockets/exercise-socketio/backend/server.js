@@ -19,11 +19,27 @@ const server = http.createServer((request, response) => {
   });
 });
 
-/*
- *
- * Code goes here
- *
- */
+const io = new Server(server, {});
+io.on("connection", (socket) => {
+  console.log(`Connected: ${socket.id}`);
+
+  socket.emit("msgs:get", { msgs: getMsgs() });
+
+  socket.on("msgs:post", (data) => {
+    console.log(data);
+    msg.push({
+      user: data.user,
+      text: data.text,
+      time: Date.now(),
+    });
+
+    io.emit("msgs:get", { msgs: getMsgs() });
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`Disconnect: ${socket.id}`);
+  });
+});
 
 const port = process.env.PORT || 8080;
 server.listen(port, () =>
